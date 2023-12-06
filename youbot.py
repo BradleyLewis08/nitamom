@@ -11,15 +11,16 @@ import cv2
 import numpy as np
 
 import time
+import math
 
 BLUE = [33,158,238]
 AQUA = [29, 219, 192]
 GREEN = [36, 200, 35]
-PURPLE = [999, 999, 999]
+PURPLE = [144, 59, 213]
 BLUE_SHADOW = [11, 39, 94]
 AQUA_SHADOW = [10, 68, 69]
 GREEN_SHADOW = [10, 53, 15]
-PURPLE_SHADOW = [999, 999, 999]
+PURPLE_SHADOW = [45, 21, 102]
 
 RED = [211, 61, 43]
 YELLOW = [211, 199, 29]
@@ -30,32 +31,41 @@ YELLOW_SHADOW = [70, 69, 13]
 PINK_SHADOW = [63, 39, 69]
 ORANGE_SHADOW = [63, 39, 32]
 
-BERRY_LIST = [RED, YELLOW, PINK, ORANGE, RED_SHADOW, YELLOW_SHADOW, PINK_SHADOW, ORANGE_SHADOW]
-BERRY_VARIATION = 10
+YELLOW3 = [145, 135, 21]
 
-ZOMBIE_LIST = [BLUE, AQUA, GREEN, BLUE_SHADOW, AQUA_SHADOW, GREEN_SHADOW]
+BERRY_LIST = [RED, YELLOW, PINK, ORANGE, RED_SHADOW, YELLOW_SHADOW, PINK_SHADOW, ORANGE_SHADOW]
+BERRY_VARIATION = 5
+
+ZOMBIE_LIST = [BLUE, AQUA, GREEN, PURPLE, BLUE_SHADOW, AQUA_SHADOW, GREEN_SHADOW, PURPLE_SHADOW]
 ZOMBIE_VARIATION = 20
 
-FRONT_THRESHOLD = 1000
-LEFT_THRESHOLD = 1000
-RIGHT_THRESHOLD = 1000
+FRONT_THRESHOLD = 800
+LEFT_THRESHOLD = 800
+RIGHT_THRESHOLD = 800
 
-BERRY_FRONT_THRESHOLD = 50
-BERRY_LEFT_THRESHOLD = 50
-BERRY_RIGHT_THRESHOLD = 50
+BERRY_FRONT_THRESHOLD = 40
+BERRY_LEFT_THRESHOLD = 40
+BERRY_RIGHT_THRESHOLD = 40
 
 
-HEALTH_THRESHOLD = 50
-ENERGY_THRESHOLD = 50
+HEALTH_THRESHOLD = 30
+# ENERGY_THRESHOLD = 30
+
+MAX_SPEED = 14.8
 
 class ZombieWorldState:
 
-    def __init__(self, fr, fl, br, bl):
+    def __init__(self, fr, fl, br, bl, arm1, arm2, arm3, arm4):
 
         self.fr = fr
         self.fl = fl
         self.br = br
         self.bl = bl
+
+        self.arm1 = arm1
+        self.arm2 = arm2
+        self.arm3 = arm3
+        self.arm4 = arm4
 
         self.isTrapped = False
         self.zombieDetected = False
@@ -68,10 +78,10 @@ class ZombieWorldState:
         self.rightBerry = False
 
     def base_forwards(self):
-        self.fr.setVelocity(10)
-        self.fl.setVelocity(10)
-        self.br.setVelocity(10)
-        self.bl.setVelocity(10)
+        self.fr.setVelocity(MAX_SPEED)
+        self.fl.setVelocity(MAX_SPEED)
+        self.br.setVelocity(MAX_SPEED)
+        self.bl.setVelocity(MAX_SPEED)
 
     def base_reset(self):
         self.fr.setVelocity(0)
@@ -80,22 +90,22 @@ class ZombieWorldState:
         self.bl.setVelocity(0)
 
     def base_turn_left(self):
-        self.fr.setVelocity(10)
-        self.fl.setVelocity(-10)
-        self.br.setVelocity(10)
-        self.bl.setVelocity(-10)
+        self.fr.setVelocity(MAX_SPEED)
+        self.fl.setVelocity(-MAX_SPEED)
+        self.br.setVelocity(MAX_SPEED)
+        self.bl.setVelocity(-MAX_SPEED)
 
     def base_turn_right(self):
-        self.fr.setVelocity(-10)
-        self.fl.setVelocity(10)
-        self.br.setVelocity(-10)
-        self.bl.setVelocity(10)
+        self.fr.setVelocity(-MAX_SPEED)
+        self.fl.setVelocity(MAX_SPEED)
+        self.br.setVelocity(-MAX_SPEED)
+        self.bl.setVelocity(MAX_SPEED)
 
     def base_backwards(self):
-        self.fr.setVelocity(-10)
-        self.fl.setVelocity(-10)
-        self.br.setVelocity(-10)
-        self.bl.setVelocity(-10)
+        self.fr.setVelocity(-MAX_SPEED)
+        self.fl.setVelocity(-MAX_SPEED)
+        self.br.setVelocity(-MAX_SPEED)
+        self.bl.setVelocity(-MAX_SPEED)
 
     def custom_turn(self, fr, fl, br, bl):
         self.fr.setVelocity(fr)
@@ -106,8 +116,9 @@ class ZombieWorldState:
     def random_turn(self):
         return random.choice([self.base_turn_left, self.base_turn_right])
 
-    def detect_walls(self):
-        pass
+    def detect_obstacles(self, prev_location, curr_location):
+        stuck = math.sqrt((prev_location[0] - curr_location[0])**2 + (prev_location[2] - curr_location[2])**2) < 0.005
+        self.isTrapped = stuck
 
     def detect_zombies(self, front_image, left_image, right_image):
         zombies = [np.asarray(zombie) for zombie in ZOMBIE_LIST]
@@ -122,16 +133,16 @@ class ZombieWorldState:
         left_zombie_pixels = [np.count_nonzero(mask) for mask in left_masks]
         right_zombie_pixels = [np.count_nonzero(mask) for mask in right_masks]
 
-        print(front_zombie_pixels, left_zombie_pixels, right_zombie_pixels)
-
+        # print("zombie pix", sum(front_zombie_pixels), sum(left_zombie_pixels), sum(right_zombie_pixels))
+        # print("here")
         if sum(front_zombie_pixels) > FRONT_THRESHOLD:
-            print("front zombie detected")
+            print(sum(front_zombie_pixels))
             self.frontZombie = True
         if sum(left_zombie_pixels) > LEFT_THRESHOLD: # by a certain margin
-            print("left zombie detected")
+            print(sum(left_zombie_pixels))
             self.leftZombie = True
         if sum(right_zombie_pixels) > RIGHT_THRESHOLD: # by a certain margin
-            print("right zombie detected")
+            print(sum(right_zombie_pixels))
             self.rightZombie = True
        
         if sum(left_zombie_pixels) > sum(right_zombie_pixels)*2:
@@ -203,21 +214,21 @@ class ZombieWorldState:
         print(front_berry_pixels, left_berry_pixels, right_berry_pixels)
 
         if self.frontBerry or self.leftBerry or self.rightBerry:
-            self.berryDetected = True            
+            self.berryDetected = True
     
     def go_to_berry(self):
         if self.frontBerry:
             # Orient until the center pixel of our camera is the same color as the berry
-            print("orienting towards berry: front")
+            # print("orienting towards berry: front")
             self.base_forwards()
         elif self.leftBerry:
             # self.base_turn_left() 
             self.custom_turn(10, -1, 10, -1)
-            print("orienting towards berry: left")
+            # print("orienting towards berry: left")
         elif self.rightBerry:
             # self.base_turn_right()
             self.custom_turn(-1, 10, -1, 10)
-            print("orienting towards berry: right")
+            # print("orienting towards berry: right")
 
         self.reset_berry_detection()
 
@@ -267,14 +278,14 @@ def main():
     #------------------CHANGE CODE BELOW HERE ONLY--------------------------
    
     #COMMENT OUT ALL SENSORS THAT ARE NOT USED. READ SPEC SHEET FOR MORE DETAILS
-    accelerometer = robot.getDevice("accelerometer")
-    accelerometer.enable(timestep)
+    # accelerometer = robot.getDevice("accelerometer")
+    # accelerometer.enable(timestep)
    
     gps = robot.getDevice("gps")
     gps.enable(timestep)
    
-    compass = robot.getDevice("compass")
-    compass.enable(timestep)
+    # compass = robot.getDevice("compass")
+    # compass.enable(timestep)
    
     camera1 = robot.getDevice("ForwardLowResBigFov")
     camera1.enable(timestep)
@@ -300,37 +311,53 @@ def main():
     # camera8 = robot.getDevice("BackHighRes")
     # camera8.enable(timestep)
    
-    gyro = robot.getDevice("gyro")
-    gyro.enable(timestep)
+    # gyro = robot.getDevice("gyro")
+    # gyro.enable(timestep)
    
-    lightSensor = robot.getDevice("light sensor")
-    lightSensor.enable(timestep)
+    # lightSensor = robot.getDevice("light sensor")
+    # lightSensor.enable(timestep)
    
-    receiver = robot.getDevice("receiver")
-    receiver.enable(timestep)
+    # receiver = robot.getDevice("receiver")
+    # receiver.enable(timestep)
    
-    rangeFinder = robot.getDevice("range-finder")
-    rangeFinder.enable(timestep)
+    # rangeFinder = robot.getDevice("range-finder")
+    # rangeFinder.enable(timestep)
    
-    lidar = robot.getDevice("lidar")
-    lidar.enable(timestep)
+    # lidar = robot.getDevice("lidar")
+    # lidar.enable(timestep)
    
     fr = robot.getDevice("wheel1")
     fl = robot.getDevice("wheel2")
     br = robot.getDevice("wheel3")
     bl = robot.getDevice("wheel4")
+
+    arm1 = robot.getDevice("arm1")
+    arm2 = robot.getDevice("arm2")
+    arm3 = robot.getDevice("arm3")
+    arm4 = robot.getDevice("arm4")
    
     fr.setPosition(float('inf'))
     fl.setPosition(float('inf'))
     br.setPosition(float('inf'))
     bl.setPosition(float('inf'))
 
+    arm1.setPosition(-1)
+    arm2.setPosition(-1)
+    arm3.setPosition(-1.2)
+    arm4.setPosition(.7)
+
     i=0
+
+    emergency_turn_counter = 0
+    prev_location = [-1, -1, -1]
+    prev = robot_info[0], robot_info[1]
 
     #------------------CHANGE CODE ABOVE HERE ONLY--------------------------
    
    
     while(robot_not_dead == 1):
+
+        desperate = robot_info[0] < HEALTH_THRESHOLD
        
         if(robot_info[0] < 0):
 
@@ -360,38 +387,47 @@ def main():
         timer += 1
        
      #------------------CHANGE CODE BELOW HERE ONLY--------------------------   #called every timestep
-        # ZOMBIE_DISTANCE_THRESHOLD = 40
+        curr = robot_info[0], robot_info[1]
+        print(prev, curr)
 
-
-        zombieState = ZombieWorldState(fr, fl, br, bl)
+        zombieState = ZombieWorldState(fr, fl, br, bl, arm1, arm2, arm3, arm4)
         cameraData = process_camera_data(camera1, camera7, camera6)
+
+        if emergency_turn_counter > 0:
+            choice = random.choice([zombieState.base_backwards, zombieState.base_backwards, zombieState.base_backwards, zombieState.base_turn_left])
+            choice()
+            emergency_turn_counter -= 1
+            if emergency_turn_counter == 0:
+                zombieState.isTrapped = False
+            continue
+
         zombieState.detect_zombies(cameraData[0], cameraData[1], cameraData[2])
         zombieState.detect_berry(cameraData[0], cameraData[1], cameraData[2])
 
-        zombieState.detect_walls()
+        curr_location = gps.getValues()
+
+        if i % 10 == 0:
+            zombieState.detect_obstacles(prev_location, curr_location)
+            prev_location = curr_location
 
         if zombieState.isTrapped:
-            # get outta there
-            pass
-        # elif robot_info[1] < ENERGY_THRESHOLD or robot_info[0] > HEALTH_THRESHOLD: # split these down the line
-        #     # go towards energy berry
-        #     zombieState.detect_berry()
-        #     zombieState.orient_towards_berry()
-        #     zombieState.drive_to_berry()
-        elif zombieState.zombieDetected:
+            emergency_turn_counter = 8
+        elif zombieState.zombieDetected and not desperate:
             zombieState.avoid_zombies()
         elif zombieState.berryDetected:
             zombieState.go_to_berry()
-            # zombieState.drive_to_berry()
-        # else:
-        #     zombieState.detect_berry()
         else:
             if not i%25:
-                choice = random.choice([[10, 0, 10, 0], [0, 10, 0, 10], [10, 10, 10, 10]])
-                zombieState.custom_turn(choice[0], choice[1], choice[2], choice[3])
-            
-            # zombieState.base_forwards()
-       
+                if desperate:
+                    choice = random.choice([[10, 10, 10, 10], [10, 10, 10, 10], [10, 0, 10, 0], [0, 10, 0, 10]])
+                    print(choice)
+                    zombieState.custom_turn(choice[0], choice[1], choice[2], choice[3])
+                else:
+                    choice = random.choice([[10, 0, 10, 0], [0, 10, 0, 10], [10, 10, 10, 10]])
+                    zombieState.custom_turn(choice[0], choice[1], choice[2], choice[3])
+
+        prev = curr
+                   
         #if i <100
             #base_forwards() -> can implement in Python with Webots C code (/Zombie world/libraries/youbot_control) as an example or make your own
        
